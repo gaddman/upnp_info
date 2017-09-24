@@ -33,7 +33,7 @@ def discover_pnp_locations():
     # Some devices don't respond to the search target ssdp:all, so also check upnp:rootdevice
     for searchTarget in ['ssdp:all', 'upnp:rootdevice']:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.sendto((ssdpDiscover % searchTarget).encode('ASCII'), ("239.255.255.250", 1900))
+        sock.sendto((ssdpDiscover % searchTarget).encode('ASCII'), ('239.255.255.250', 1900))
         sock.settimeout(3)
         try:
             while True:
@@ -115,7 +115,7 @@ def parse_locations(locations):
                     scp = service.find('./'+rootNS+'SCPDURL').text
                     if scp[0] != '/':
                         scp = '/' + scp
-                    serviceURL = parsed.scheme + "://" + parsed.netloc + scp
+                    serviceURL = parsed.scheme + '://' + parsed.netloc + scp
                     print('\t\t=> API: %s' % serviceURL)
 
                     # read in the SCP XML
@@ -145,21 +145,21 @@ def parse_locations(locations):
                                 scp = service.find('./{urn:schemas-upnp-org:device-1-0}controlURL').text
                                 if scp[0] != '/':
                                     scp = '/' + scp
-                                igd_ctr = parsed.scheme + "://" + parsed.netloc + scp
+                                igd_ctr = parsed.scheme + '://' + parsed.netloc + scp
                                 igd_service = service.find('./{urn:schemas-upnp-org:device-1-0}serviceType').text
                             elif action.find('./{urn:schemas-upnp-org:service-1-0}name').text == 'Browse':
                                 # Add a lead in '/' if it doesn't exist
                                 scp = service.find('./{urn:schemas-upnp-org:device-1-0}controlURL').text
                                 if scp[0] != '/':
                                     scp = '/' + scp
-                                cd_ctr = parsed.scheme + "://" + parsed.netloc + scp
+                                cd_ctr = parsed.scheme + '://' + parsed.netloc + scp
                                 cd_service = service.find('./{urn:schemas-upnp-org:device-1-0}serviceType').text
                             elif action.find('./{urn:schemas-upnp-org:service-1-0}name').text == 'GetDeviceInfo':
                                 # Add a lead in '/' if it doesn't exist
                                 scp = service.find('./{urn:schemas-upnp-org:device-1-0}controlURL').text
                                 if scp[0] != '/':
                                     scp = '/' + scp
-                                wps_ctr = parsed.scheme + "://" + parsed.netloc + scp
+                                wps_ctr = parsed.scheme + '://' + parsed.netloc + scp
                                 wps_service = service.find('./{urn:schemas-upnp-org:device-1-0}serviceType').text
 
                 if igd_ctr and igd_service:
@@ -214,14 +214,14 @@ def find_port_mappings(p_url, p_service):
                 print('\t\t[!] Failed to parse the response XML')
                 return
 
-            externalIP = xmlRoot.find(".//*NewRemoteHost").text
+            externalIP = xmlRoot.find('.//*NewRemoteHost').text
             if externalIP == None:
                 externalIP = '*'
 
-            print('\t\t[%s] %s:%s => %s:%s | Desc: %s' % (xmlRoot.find(".//*NewProtocol").text,
-                externalIP, xmlRoot.find(".//*NewExternalPort").text,
-                xmlRoot.find(".//*NewInternalClient").text, xmlRoot.find(".//*NewInternalPort").text,
-                xmlRoot.find(".//*NewPortMappingDescription").text))
+            print('\t\t[%s] %s:%s => %s:%s | Desc: %s' % (xmlRoot.find('.//*NewProtocol').text,
+                externalIP, xmlRoot.find('.//*NewExternalPort').text,
+                xmlRoot.find('.//*NewInternalClient').text, xmlRoot.find('.//*NewInternalPort').text,
+                xmlRoot.find('.//*NewPortMappingDescription').text))
 
         index += 1
 
@@ -257,15 +257,15 @@ def find_directories(p_url, p_service):
 
     try:
         xmlRoot = ET.fromstring(resp.text)
-        containers = xmlRoot.find(".//*Result").text
+        containers = xmlRoot.find('.//*Result').text
         if not containers:
             return
 
         xmlRoot = ET.fromstring(containers)
-        containers = xmlRoot.findall("./{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}container")
+        containers = xmlRoot.findall('./{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}container')
         for container in containers:
-            if container.find("./{urn:schemas-upnp-org:metadata-1-0/upnp/}class").text.find("object.container") > -1:
-                print("\t\tStorage Folder: " + container.find("./{http://purl.org/dc/elements/1.1/}title").text)
+            if container.find('./{urn:schemas-upnp-org:metadata-1-0/upnp/}class').text.find('object.container') > -1:
+                print('\t\tStorage Folder: ' + container.find('./{http://purl.org/dc/elements/1.1/}title').text)
     except:
         print('\t\t[!] Failed to parse the response XML')
 
@@ -294,7 +294,7 @@ def find_device_info(p_url, p_service):
         print('\t[-] Request failed with status: %d' % resp.status_code)
         return
 
-    info_regex = re.compile("<NewDeviceInfo>(.+)</NewDeviceInfo>", re.IGNORECASE|re.DOTALL)
+    info_regex = re.compile('<NewDeviceInfo>(.+)</NewDeviceInfo>', re.IGNORECASE|re.DOTALL)
     encoded_info = info_regex.search(resp.text)
     if not encoded_info:
         print('\t[-] Failed to find the device info')
@@ -327,7 +327,7 @@ def find_device_info(p_url, p_service):
             elif type == 0x1042:
                 print('\t\tSerial Number: %s' % value)
         except: 
-            print("Failed TLV parsing")
+            print('Failed TLV parsing')
             break
 
 ###
@@ -345,8 +345,8 @@ def main(argv):
 
     parse_locations(locations)
 
-    print("[+] Fin.")
+    print('[+] Fin.')
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main(sys.argv)
 
