@@ -27,20 +27,22 @@ def discover_pnp_locations():
                     'HOST: 239.255.255.250:1900\r\n' +
                     'MAN: "ssdp:discover"\r\n' +
                     'MX: 1\r\n' +
-                    'ST: ssdp:all\r\n' +
+                    'ST: %s\r\n' +
                     '\r\n')
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.sendto(ssdpDiscover.encode('ASCII'), ("239.255.255.250", 1900))
-    sock.settimeout(3)
-    try:
-        while True:
-            data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
-            location_result = location_regex.search(data.decode('ASCII'))
-            if location_result and (location_result.group(1) in locations) == False:
-                locations.add(location_result.group(1))
-    except socket.error:
-        sock.close()
+    # Some devices don't respond to the search target ssdp:all, so also check upnp:rootdevice
+    for searchTarget in ['ssdp:all', 'upnp:rootdevice']:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.sendto((ssdpDiscover % searchTarget).encode('ASCII'), ("239.255.255.250", 1900))
+        sock.settimeout(3)
+        try:
+            while True:
+                data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
+                location_result = location_regex.search(data.decode('ASCII'))
+                if location_result and (location_result.group(1) in locations) == False:
+                    locations.add(location_result.group(1))
+        except socket.error:
+            sock.close()
 
     return locations
 
@@ -81,18 +83,19 @@ def parse_locations(locations):
                 print('\t==== XML Attributes ===')
                 try:
                     xmlRoot = ET.fromstring(resp.text)
+                    rootNS = re.sub('root$', '', xmlRoot.tag)
                 except:
                     print('\t[!] Failed XML parsing of %s' % location)
                     continue;
 
-                print_attribute(xmlRoot, "./{urn:schemas-upnp-org:device-1-0}device/{urn:schemas-upnp-org:device-1-0}deviceType", "Device Type")
-                print_attribute(xmlRoot, "./{urn:schemas-upnp-org:device-1-0}device/{urn:schemas-upnp-org:device-1-0}friendlyName", "Friendly Name")
-                print_attribute(xmlRoot, "./{urn:schemas-upnp-org:device-1-0}device/{urn:schemas-upnp-org:device-1-0}manufacturer", "Manufacturer")
-                print_attribute(xmlRoot, "./{urn:schemas-upnp-org:device-1-0}device/{urn:schemas-upnp-org:device-1-0}manufacturerURL", "Manufacturer URL")
-                print_attribute(xmlRoot, "./{urn:schemas-upnp-org:device-1-0}device/{urn:schemas-upnp-org:device-1-0}modelDescription", "Model Description")
-                print_attribute(xmlRoot, "./{urn:schemas-upnp-org:device-1-0}device/{urn:schemas-upnp-org:device-1-0}modelName", "Model Name")
-                print_attribute(xmlRoot, "./{urn:schemas-upnp-org:device-1-0}device/{urn:schemas-upnp-org:device-1-0}modelNumber", "Model Number")
-                print_attribute(xmlRoot, "./{urn:schemas-upnp-org:device-1-0}device/{urn:schemas-upnp-org:device-1-0}serialNumber", "Serial Number")
+                print_attribute(xmlRoot, './'+rootNS+'device/'+rootNS+'deviceType', 'Device Type')
+                print_attribute(xmlRoot, './'+rootNS+'device/'+rootNS+'friendlyName', 'Friendly Name')
+                print_attribute(xmlRoot, './'+rootNS+'device/'+rootNS+'manufacturer', 'Manufacturer')
+                print_attribute(xmlRoot, './'+rootNS+'device/'+rootNS+'manufacturerURL', 'Manufacturer URL')
+                print_attribute(xmlRoot, './'+rootNS+'device/'+rootNS+'modelDescription', 'Model Description')
+                print_attribute(xmlRoot, './'+rootNS+'device/'+rootNS+'modelName', 'Model Name')
+                print_attribute(xmlRoot, './'+rootNS+'device/'+rootNS+'modelNumber', 'Model Number')
+                print_attribute(xmlRoot, './'+rootNS+'device/'+rootNS+'serialNumber', 'Serial Number')
 
                 igd_ctr = ''
                 igd_service = ''
@@ -102,14 +105,14 @@ def parse_locations(locations):
                 wps_service = ''
 
                 print('\t-> Services:')
-                services = xmlRoot.findall(".//*{urn:schemas-upnp-org:device-1-0}serviceList/")
+                services = xmlRoot.findall('.//*'+rootNS+'serviceList/')
                 for service in services:
-                    print('\t\t=> Service Type: %s' % service.find('./{urn:schemas-upnp-org:device-1-0}serviceType').text)
-                    print('\t\t=> Control: %s' % service.find('./{urn:schemas-upnp-org:device-1-0}controlURL').text)
-                    print('\t\t=> Events: %s' % service.find('./{urn:schemas-upnp-org:device-1-0}eventSubURL').text)
+                    print('\t\t=> Service Type: %s' % service.find('./'+rootNS+'serviceType').text)
+                    print('\t\t=> Control: %s' % service.find('./'+rootNS+'controlURL').text)
+                    print('\t\t=> Events: %s' % service.find('./'+rootNS+'eventSubURL').text)
 
                     # Add a lead in '/' if it doesn't exist
-                    scp = service.find('./{urn:schemas-upnp-org:device-1-0}SCPDURL').text
+                    scp = service.find('./'+rootNS+'SCPDURL').text
                     if scp[0] != '/':
                         scp = '/' + scp
                     serviceURL = parsed.scheme + "://" + parsed.netloc + scp
@@ -127,33 +130,35 @@ def parse_locations(locations):
 
                     try:
                         serviceXML = ET.fromstring(resp.text)
+                        serviceNS = re.sub('scpd$', '', serviceXML.tag)
                     except:
                         print('\t\t\t[!] Failed to parse the response XML')
                         continue;
-                    actions = serviceXML.findall(".//*{urn:schemas-upnp-org:service-1-0}action")
+                    actions = serviceXML.findall('.//*'+serviceNS+'action')
                     for action in actions:
-                        print('\t\t\t- ' + action.find('./{urn:schemas-upnp-org:service-1-0}name').text)
-                        if action.find('./{urn:schemas-upnp-org:service-1-0}name').text == 'AddPortMapping':
-                            # Add a lead in '/' if it doesn't exist
-                            scp = service.find('./{urn:schemas-upnp-org:device-1-0}controlURL').text
-                            if scp[0] != '/':
-                                scp = '/' + scp
-                            igd_ctr = parsed.scheme + "://" + parsed.netloc + scp
-                            igd_service = service.find('./{urn:schemas-upnp-org:device-1-0}serviceType').text
-                        elif action.find('./{urn:schemas-upnp-org:service-1-0}name').text == 'Browse':
-                            # Add a lead in '/' if it doesn't exist
-                            scp = service.find('./{urn:schemas-upnp-org:device-1-0}controlURL').text
-                            if scp[0] != '/':
-                                scp = '/' + scp
-                            cd_ctr = parsed.scheme + "://" + parsed.netloc + scp
-                            cd_service = service.find('./{urn:schemas-upnp-org:device-1-0}serviceType').text
-                        elif action.find('./{urn:schemas-upnp-org:service-1-0}name').text == 'GetDeviceInfo':
-                            # Add a lead in '/' if it doesn't exist
-                            scp = service.find('./{urn:schemas-upnp-org:device-1-0}controlURL').text
-                            if scp[0] != '/':
-                                scp = '/' + scp
-                            wps_ctr = parsed.scheme + "://" + parsed.netloc + scp
-                            wps_service = service.find('./{urn:schemas-upnp-org:device-1-0}serviceType').text
+                        print('\t\t\t- ' + action.find('./'+serviceNS+'name').text)
+                        if serviceNS == '{urn:schemas-upnp-org:service-1-0}':
+                            if action.find('./{urn:schemas-upnp-org:service-1-0}name').text == 'AddPortMapping':
+                                # Add a lead in '/' if it doesn't exist
+                                scp = service.find('./{urn:schemas-upnp-org:device-1-0}controlURL').text
+                                if scp[0] != '/':
+                                    scp = '/' + scp
+                                igd_ctr = parsed.scheme + "://" + parsed.netloc + scp
+                                igd_service = service.find('./{urn:schemas-upnp-org:device-1-0}serviceType').text
+                            elif action.find('./{urn:schemas-upnp-org:service-1-0}name').text == 'Browse':
+                                # Add a lead in '/' if it doesn't exist
+                                scp = service.find('./{urn:schemas-upnp-org:device-1-0}controlURL').text
+                                if scp[0] != '/':
+                                    scp = '/' + scp
+                                cd_ctr = parsed.scheme + "://" + parsed.netloc + scp
+                                cd_service = service.find('./{urn:schemas-upnp-org:device-1-0}serviceType').text
+                            elif action.find('./{urn:schemas-upnp-org:service-1-0}name').text == 'GetDeviceInfo':
+                                # Add a lead in '/' if it doesn't exist
+                                scp = service.find('./{urn:schemas-upnp-org:device-1-0}controlURL').text
+                                if scp[0] != '/':
+                                    scp = '/' + scp
+                                wps_ctr = parsed.scheme + "://" + parsed.netloc + scp
+                                wps_service = service.find('./{urn:schemas-upnp-org:device-1-0}serviceType').text
 
                 if igd_ctr and igd_service:
                     print('\t[+] IGD port mapping available. Looking up current mappings...')
