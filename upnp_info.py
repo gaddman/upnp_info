@@ -128,8 +128,10 @@ def parse_locations(locations):
                         print('[!] Timeout reading from %s' % serviceURL)
                         continue
 
+                    # Belkin WeMo has some garbage characters at the start of some files
+                    belkin_strip = u'^\xef\xbb\xbf'
                     try:
-                        serviceXML = ET.fromstring(resp.text)
+                        serviceXML = ET.fromstring(re.sub(belkin_strip,'',resp.text))
                         serviceNS = re.sub('scpd$', '', serviceXML.tag)
                     except:
                         print('\t\t\t[!] Failed to parse the response XML')
