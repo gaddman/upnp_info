@@ -8,9 +8,9 @@ import requests
 import xml.etree.ElementTree as ET
 
 try:
-    from urlparse import urlparse
+    from urlparse import urlparse, urljoin
 except ImportError:
-    from urllib.parse import urlparse
+    from urllib.parse import urlparse, urljoin
 
 ###
 # Send a multicast message tell all the pnp services that we are looking
@@ -22,7 +22,7 @@ except ImportError:
 ###
 def discover_pnp_locations():
     locations = set()
-    location_regex = re.compile("location:[ ]*(.+)\r\n", re.IGNORECASE)
+    location_regex = re.compile("location:[ ]*(http.+)\r\n", re.IGNORECASE)
     ssdpDiscover = ('M-SEARCH * HTTP/1.1\r\n' +
                     'HOST: 239.255.255.250:1900\r\n' +
                     'MAN: "ssdp:discover"\r\n' +
@@ -111,11 +111,9 @@ def parse_locations(locations):
                     print('\t\t=> Control: %s' % service.find('./'+rootNS+'controlURL').text)
                     print('\t\t=> Events: %s' % service.find('./'+rootNS+'eventSubURL').text)
 
-                    # Add a lead in '/' if it doesn't exist
                     scp = service.find('./'+rootNS+'SCPDURL').text
-                    if scp[0] != '/':
-                        scp = '/' + scp
-                    serviceURL = parsed.scheme + '://' + parsed.netloc + scp
+                    # SCDP URL may include schema, leading '/', or neither
+                    serviceURL = urljoin(parsed.scheme + '://' + parsed.netloc, scp)
                     print('\t\t=> API: %s' % serviceURL)
 
                     # read in the SCP XML
@@ -141,25 +139,16 @@ def parse_locations(locations):
                         print('\t\t\t- ' + action.find('./'+serviceNS+'name').text)
                         if serviceNS == '{urn:schemas-upnp-org:service-1-0}':
                             if action.find('./{urn:schemas-upnp-org:service-1-0}name').text == 'AddPortMapping':
-                                # Add a lead in '/' if it doesn't exist
                                 scp = service.find('./{urn:schemas-upnp-org:device-1-0}controlURL').text
-                                if scp[0] != '/':
-                                    scp = '/' + scp
-                                igd_ctr = parsed.scheme + '://' + parsed.netloc + scp
+                                igd_ctr = urljoin(parsed.scheme + '://' + parsed.netloc, scp)
                                 igd_service = service.find('./{urn:schemas-upnp-org:device-1-0}serviceType').text
                             elif action.find('./{urn:schemas-upnp-org:service-1-0}name').text == 'Browse':
-                                # Add a lead in '/' if it doesn't exist
                                 scp = service.find('./{urn:schemas-upnp-org:device-1-0}controlURL').text
-                                if scp[0] != '/':
-                                    scp = '/' + scp
-                                cd_ctr = parsed.scheme + '://' + parsed.netloc + scp
+                                cd_ctr = urljoin(parsed.scheme + '://' + parsed.netloc, scp)
                                 cd_service = service.find('./{urn:schemas-upnp-org:device-1-0}serviceType').text
                             elif action.find('./{urn:schemas-upnp-org:service-1-0}name').text == 'GetDeviceInfo':
-                                # Add a lead in '/' if it doesn't exist
                                 scp = service.find('./{urn:schemas-upnp-org:device-1-0}controlURL').text
-                                if scp[0] != '/':
-                                    scp = '/' + scp
-                                wps_ctr = parsed.scheme + '://' + parsed.netloc + scp
+                                wps_ctr = urljoin(parsed.scheme + '://' + parsed.netloc, scp)
                                 wps_service = service.find('./{urn:schemas-upnp-org:device-1-0}serviceType').text
 
                 if igd_ctr and igd_service:
